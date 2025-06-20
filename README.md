@@ -1,8 +1,7 @@
 # AutoPush
 
-## SECURITYNOTE:
+## SECURITY NOTE:
 ***THIS COMMITS AND PUSHES EVERYTHING!***
-
 
 Before you run the script in a public repository, make sure your project has a robust `.gitignore` to avoid accidentally committing editor swap files, build artifacts, or secrets. At a minimum, include:
 
