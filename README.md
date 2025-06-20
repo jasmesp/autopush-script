@@ -1,4 +1,4 @@
-# AutoPush
+# JasAutoPush
 
 ## SECURITY NOTE:
 ***THIS COMMITS AND PUSHES EVERYTHING!***
