@@ -7,6 +7,7 @@ TMP_FLAG="/tmp/autopush_pending_$(basename "$PWD")"
 rm -f .git/index.lock .git/HEAD.lock .git/packed-refs.lock .git/AUTO_MERGE.lock 2>/dev/null
 
 cd "$WATCH_DIR" || exit 1
+echo "memory-watch running (PID $$). Ctrl-C to stop."
 rm -f "$TMP_FLAG"
 
 # Log function
@@ -15,35 +16,42 @@ log() {
 }
 
 # Background: watch for changes and commit them
-fswatch -0 -r "$WATCH_DIR" | while IFS= read -r -d "" file; do
+fswatch -0 -r --exclude '\.git' --exclude 'tmp_obj_' --exclude '\.lock$' "$WATCH_DIR" | while IFS= read -r -d "" file; do
+  [[ "$file" == *".git/"* ]] || [[ "$file" == *"tmp_obj_"* ]] || [[ "$file" == *.lock ]] && continue
+
+  # Skip if it's a directory
+  if [ -d "$file" ]; then
+    log "Skipping directory: $file"
+    continue
+  fi
+
   RELFILE="${file#./}"
 
   # Ignore temp/internal files
   if [[ "$RELFILE" == .git/* ]] || [[ "$RELFILE" == *.swp ]] || [[ "$RELFILE" == *.tmp ]] || \
      [[ "$RELFILE" == *.DS_Store ]] || [[ "$RELFILE" == tmp_obj_* ]] || [[ "$RELFILE" == *.lock ]] || \
-     [[ "$RELFILE" == "$(basename "$TMP_FLAG")" ]]; then
+     [[ "$RELFILE" == "$(basename "$TMP_FLAG")" ]] || [[ "$RELFILE" == "autopush-errors.log" ]]; then
     log "Ignoring temp/internal file: $RELFILE"
     continue
   fi
 
   # Commit the change
-  if git add "$RELFILE" 2>> autopush-errors.log && \
-     git commit -m "Auto-commit: $RELFILE at $(date '+%Y-%m-%d %H:%M:%S')" 2>> autopush-errors.log; then
-    log "Committed $RELFILE"
-  else
-    log "❌ Commit failed for $RELFILE — see autopush-errors.log"
+  if git add "$RELFILE" >/dev/null 2>&1 && \
+     git commit -m "auto: $(basename "$RELFILE") $(date '+%F %T')" >/dev/null 2>&1; then
+    echo "Committed $(basename "$RELFILE") at $(date '+%H:%M:%S')"
+    touch "$TMP_FLAG"
   fi
 
-  touch "$TMP_FLAG"
 done &
 FSWATCH_PID=$!
 
 # Background: push every $PUSH_INTERVAL if changes happened
 while true; do
   sleep "$PUSH_INTERVAL"
-  if [ -f "$TMP_FLAG" ]; then
-    log "Pushing batched commits..."
-    if ! git push 2>&1 | tee -a autopush-errors.log; then
+  if [[ -e "$TMP_FLAG" ]]; then
+    if git push; then
+      echo "Pushed at $(date '+%H:%M:%S')"
+    else
       log "❌ Push failed — check autopush-errors.log for details"
     fi
     rm -f "$TMP_FLAG"
