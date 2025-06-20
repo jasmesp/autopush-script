@@ -22,9 +22,12 @@ fswatch -0 -r "$WATCH_DIR" | while IFS= read -r -d "" file; do
   [[ "$RELFILE" == *.swp || "$RELFILE" == *.tmp || "$RELFILE" == *.DS_Store ]] && continue
 
   # Commit the change
-  git add "$RELFILE" >/dev/null 2>&1
-  git commit -m "Auto-commit: $RELFILE at $(date '+%Y-%m-%d %H:%M:%S')" >/dev/null 2>&1 && \
+  if git add "$RELFILE" 2>> autopush-errors.log && \
+     git commit -m "Auto-commit: $RELFILE at $(date '+%Y-%m-%d %H:%M:%S')" 2>> autopush-errors.log; then
     log "Committed $RELFILE"
+  else
+    log "❌ Commit failed for $RELFILE — see autopush-errors.log"
+  fi
 
   touch "$TMP_FLAG"
 done &
@@ -35,7 +38,9 @@ while true; do
   sleep "$PUSH_INTERVAL"
   if [ -f "$TMP_FLAG" ]; then
     log "Pushing batched commits..."
-    git push
+    if ! git push 2>&1 | tee -a autopush-errors.log; then
+      log "❌ Push failed — check autopush-errors.log for details"
+    fi
     rm -f "$TMP_FLAG"
   else
     log "No new commits to push."

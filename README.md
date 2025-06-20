@@ -15,7 +15,11 @@ Before you run the script in a public repository, make sure your project has a r
 
 ## Description
 
-This script watches a directory and commits changes to a Git repository on every change, then pushes every 5 minutes. It's a simple way to keep your repository up to date without having to manually commit and push.
+This script watches a directory and commits changes to a Git repository on every change, then pushes every 5 minutes. It is currently best used for backup type jobs as it doesn't fetch or pull from the remote repository etc.
+
+## Conflicts on push
+
+It should print an error to the console and log the error.
 
 ## Install
 
