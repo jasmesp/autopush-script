@@ -2,8 +2,9 @@
 
 WATCH_DIR="."                      # Directory to watch
 PUSH_INTERVAL=300                  # 5 minutes
-TMP_FLAG=".pending_push"          # Marker for pending changes
-LOG_PREFIX="[autocommit]"
+TMP_FLAG="/tmp/autopush_pending_$(basename "$PWD")"
+
+rm -f .git/index.lock .git/HEAD.lock .git/packed-refs.lock .git/AUTO_MERGE.lock 2>/dev/null
 
 cd "$WATCH_DIR" || exit 1
 rm -f "$TMP_FLAG"
@@ -17,9 +18,13 @@ log() {
 fswatch -0 -r "$WATCH_DIR" | while IFS= read -r -d "" file; do
   RELFILE="${file#./}"
 
-  # Ignore certain patterns
-  [[ "$RELFILE" == .git/* ]] && continue
-  [[ "$RELFILE" == *.swp || "$RELFILE" == *.tmp || "$RELFILE" == *.DS_Store ]] && continue
+  # Ignore temp/internal files
+  if [[ "$RELFILE" == .git/* ]] || [[ "$RELFILE" == *.swp ]] || [[ "$RELFILE" == *.tmp ]] || \
+     [[ "$RELFILE" == *.DS_Store ]] || [[ "$RELFILE" == tmp_obj_* ]] || [[ "$RELFILE" == *.lock ]] || \
+     [[ "$RELFILE" == "$(basename "$TMP_FLAG")" ]]; then
+    log "Ignoring temp/internal file: $RELFILE"
+    continue
+  fi
 
   # Commit the change
   if git add "$RELFILE" 2>> autopush-errors.log && \
